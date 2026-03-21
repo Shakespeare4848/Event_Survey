@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Feedback Prototype v2</title>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #e5e7eb;
+      --accent: #315efb;
+      --accent-soft: #eef3ff;
+      --ok: #067647;
+      --warn: #b42318;
+      --warn-soft: #fef3f2;
+      --shadow: 0 12px 32px rgba(18, 28, 45, 0.10);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(180deg, #f8faff 0%, var(--bg) 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .phone-shell { width: 100%; max-width: 440px; }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 18px 16px;
+      min-height: 740px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(0,0,0,0.04);
+    }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px; gap: 12px;
+    }
+    .brand { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+    .progress-wrap { flex: 1; height: 8px; background: #edf1f7; border-radius: 999px; overflow: hidden; }
+    .progress-bar {
+      height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #7b9cff);
+      transition: width .25s ease; border-radius: 999px;
+    }
+    .step { font-size: 12px; color: var(--muted); min-width: 42px; text-align: right; }
+    .content { flex: 1; display: flex; flex-direction: column; }
+    .eyebrow {
+      color: var(--accent); background: var(--accent-soft); width: fit-content;
+      padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-bottom: 14px;
+    }
+    h1, .question { font-size: 28px; line-height: 1.15; margin: 0 0 12px; letter-spacing: -.02em; }
+    .sub { margin: 0 0 20px; color: var(--muted); font-size: 15px; line-height: 1.5; }
+    .event-box, .report {
+      background: #f8fafc; border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 18px;
+    }
+    .event-item, .metric {
+      display: flex; justify-content: space-between; gap: 12px; padding: 10px 0;
+      border-bottom: 1px solid #edf2f7; font-size: 14px;
+    }
+    .event-item:last-child, .metric:last-child { border-bottom: 0; }
+    .event-item span:first-child { color: var(--muted); }
+    .options, .multi-options { display: grid; gap: 10px; margin-top: 10px; }
+    .option, .multi-option, .nps-option {
+      border: 1.5px solid var(--line); background: #fff; border-radius: 16px; padding: 14px 16px;
+      text-align: left; font-size: 15px; cursor: pointer; transition: .18s ease; color: var(--text);
+    }
+    .option:hover, .multi-option:hover, .nps-option:hover, .option.selected, .multi-option.selected, .nps-option.selected {
+      border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px);
+    }
+    .nps-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 10px 0 8px; }
+    .nps-option { text-align: center; padding: 14px 0; font-weight: 700; }
+    .scale-labels { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); font-size: 12px; margin-top: 4px; }
+    textarea, input {
+      width: 100%; border: 1.5px solid var(--line); border-radius: 16px; padding: 14px 15px;
+      font: inherit; color: var(--text); outline: none; transition: border-color .18s ease, box-shadow .18s ease; background: #fff;
+    }
+    textarea:focus, input:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 4px rgba(49, 94, 251, .10);
+    }
+    input.invalid, textarea.invalid { border-color: var(--warn); background: #fffafa; }
+    textarea { min-height: 140px; resize: vertical; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+    .error-box {
+      display: none; margin: 0 0 14px; padding: 12px 14px; border-radius: 14px;
+      background: var(--warn-soft); border: 1px solid #fecdca; color: var(--warn); font-size: 14px; font-weight: 600;
+    }
+    .error-box.show { display: block; }
+    .field-error { margin-top: 6px; color: var(--warn); font-size: 12px; min-height: 16px; }
+    .actions { display: flex; gap: 10px; margin-top: 18px; }
+    button.primary, button.secondary {
+      border: 0; border-radius: 16px; padding: 14px 18px; font: inherit; font-weight: 700; cursor: pointer; transition: .18s ease;
+    }
+    button.primary { flex: 1; background: var(--accent); color: white; box-shadow: 0 8px 22px rgba(49,94,251,.24); }
+    button.primary:hover { transform: translateY(-1px); }
+    button.primary:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+    button.secondary { background: #eef2f7; color: var(--text); }
+    .footer-note, .tiny { margin-top: 16px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .success {
+      width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center;
+      background: #ecfdf3; color: var(--ok); font-size: 34px; font-weight: 800; margin-bottom: 16px;
+    }
+    .score-badge {
+      display: inline-block; background: var(--accent-soft); color: var(--accent);
+      font-weight: 800; padding: 8px 12px; border-radius: 999px; margin-bottom: 12px;
+    }
+    .status-pill {
+      display: inline-block; margin-top: 8px; padding: 8px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    }
+    .status-demo { background: #eef2ff; color: #3730a3; }
+    .status-live { background: #ecfdf3; color: #067647; }
+    @media (max-width: 520px) {
+      body { padding: 8px; }
+      .card { min-height: 100dvh; border-radius: 0; }
+      .phone-shell { max-width: none; }
+      .nps-grid { grid-template-columns: repeat(4, 1fr); }
+      h1, .question { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="phone-shell">
+    <div class="card">
+      <div class="topbar">
+        <div class="brand">Event organiser feedback</div>
+        <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="step" id="stepText">1/14</div>
+      </div>
+      <div class="content" id="app"></div>
+    </div>
+  </div>
+
+  <script>
+    const GOOGLE_APPS_SCRIPT_URL = ''; // Paste your Apps Script web app URL here to enable live saving.
+    const AUTO_ADVANCE_DELAY = 180;
+
+    const params = new URLSearchParams(window.location.search);
+    const prefill = {
+      eventName: params.get('event') || 'Indian Cultural Festival',
+      eventDate: params.get('date') || '12 March 2026',
+      organiser: params.get('organiser') || 'Dublin Indian Association',
+      eventType: params.get('type') || '',
+      email: params.get('email') || '',
+      name: params.get('name') || ''
+    };
+
+    const likertOptions = [
+      { label: 'Strongly Disagree', value: 1 },
+      { label: 'Disagree', value: 2 },
+      { label: 'Neutral', value: 3 },
+      { label: 'Agree', value: 4 },
+      { label: 'Strongly Agree', value: 5 },
+    ];
+
+    const state = {
+      current: 0,
+      isSubmitting: false,
+      submitStatus: 'demo',
+      answers: {
+        eventType: prefill.eventType,
+        audienceSize: '',
+        facilitiesUsed: [],
+        qPlanning: null,
+        qTechnical: null,
+        qVenue: null,
+        qCafe: null,
+        qSupport: null,
+        qOverall: null,
+        recommendation: null,
+        improvement: '',
+        name: prefill.name,
+        organisation: prefill.organiser,
+        email: prefill.email
+      }
+    };
+
+    const screens = [
+      { id: 'welcome', render: renderWelcome, valid: () => true },
+      { id: 'eventType', render: () => renderSingleChoice('What type of event was this?', 'Choose the closest fit.', 'eventType', ['Cultural community event', 'Theatre / performance', 'Irish dance competition', 'International / non-Irish dance competition', 'Concert / music event', 'Conference / talk', 'Other'], 'Classification'), valid: () => !!state.answers.eventType },
+      { id: 'audienceSize', render: () => renderSingleChoice('Approximately how many people attended?', 'This helps compare events of different sizes.', 'audienceSize', ['Under 50', '50–100', '100–200', '200–400', '400+'], 'Classification'), valid: () => !!state.answers.audienceSize },
+      { id: 'facilitiesUsed', render: renderFacilities, valid: () => state.answers.facilitiesUsed.length > 0 },
+      { id: 'qPlanning', render: () => renderLikert('Communication and planning before the event were clear and efficient.', 'Planning'), valid: () => state.answers.qPlanning !== null },
+      { id: 'qTechnical', render: () => renderLikert('The sound, lighting and projection facilities met the needs of our event.', 'Experience'), valid: () => state.answers.qTechnical !== null },
+      { id: 'qVenue', render: () => renderLikert('The venue facilities (space, seating and parking) worked well for our event.', 'Experience'), valid: () => state.answers.qVenue !== null },
+      { id: 'qCafe', render: renderCafe, valid: () => state.answers.qCafe !== null },
+      { id: 'qSupport', render: () => renderLikert('The venue team provided good support during the event.', 'Experience'), valid: () => state.answers.qSupport !== null },
+      { id: 'qOverall', render: () => renderLikert('Overall we were very satisfied with how the event was delivered.', 'Experience'), valid: () => state.answers.qOverall !== null },
+      { id: 'recommendation', render: renderNPS, valid: () => state.answers.recommendation !== null },
+      { id: 'improvement', render: renderComment, valid: () => true },
+      { id: 'contact', render: renderContact, valid: validateContact },
+      { id: 'thankyou', render: renderThankYou, valid: () => true },
+    ];
+
+    function validEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+    }
+
+    function validateContact() {
+      return !!state.answers.name.trim() && !!state.answers.organisation.trim() && validEmail(state.answers.email);
+    }
+
+    function updateProgress() {
+      const index = state.current;
+      const total = screens.length;
+      document.getElementById('stepText').textContent = `${index + 1}/${total}`;
+      document.getElementById('progressBar').style.width = `${((index + 1) / total) * 100}%`;
+    }
+
+    function goNext() {
+      if (state.current < screens.length - 1) {
+        state.current += 1;
+        render();
+      }
+    }
+
+    function scheduleAutoAdvance() {
+      clearTimeout(window.__surveyAdvanceTimer);
+      window.__surveyAdvanceTimer = setTimeout(() => {
+        if (screens[state.current].valid()) goNext();
+      }, AUTO_ADVANCE_DELAY);
+    }
+
+    function navButtons({ canContinue = screens[state.current].valid(), showBack = state.current > 0, primaryText } = {}) {
+      const defaultPrimary = state.current === screens.length - 1 ? 'Done' : (state.current === screens.length - 2 ? 'Submit' : 'Next');
+      const wrap = document.createElement('div');
+      wrap.className = 'actions';
+      if (showBack) {
+        const back = document.createElement('button');
+        back.className = 'secondary';
+        back.type = 'button';
+        back.textContent = 'Back';
+        back.onclick = () => { state.current -= 1; render(); };
+        wrap.appendChild(back);
+      }
+      const next = document.createElement('button');
+      next.className = 'primary';
+      next.type = 'button';
+      next.textContent = primaryText || defaultPrimary;
+      next.disabled = !canContinue;
+      next.onclick = () => {
+        if (state.current === screens.length - 2) {
+          submitSurvey();
+        } else {
+          goNext();
+        }
+      };
+      wrap.appendChild(next);
+      return wrap;
+    }
+
+    function render() {
+      updateProgress();
+      const app = document.getElementById('app');
+      app.innerHTML = '';
+      app.appendChild(screens[state.current].render());
+    }
+
+    function renderWelcome() {
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <div class="eyebrow">Event confirmation</div>
+        <h1>Event Feedback</h1>
+        <p class="sub">We would appreciate your feedback. This short survey takes about one minute.</p>
+        <div class="event-box">
+          <div class="event-item"><span>Event</span><strong>${escapeHtml(prefill.eventName)}</strong></div>
+          <div class="event-item"><span>Date</span><strong>${escapeHtml(prefill.eventDate)}</strong></div>
+          <div class="event-item"><span>Organiser</span><strong>${escapeHtml(prefill.organiser)}</strong></div>
+        </div>
+        <p class="tiny">This version fixes the contact-page issue and auto-advances when an answer is selected.</p>
+      `;
+      div.appendChild(navButtons({ canContinue: true, showBack: false, primaryText: 'Start' }));
+      return div;
+    }
+
+    function renderSingleChoice(title, sub, key, options, eyebrow = 'Survey') {
+      const div = document.createElement('div');
+      div.innerHTML = `<div class="eyebrow">${eyebrow}</div><div class="question">${title}</div><p class="sub">${sub}</p>`;
+      const optionsWrap = document.createElement('div');
+      optionsWrap.className = 'options';
+      options.forEach(option => {
+        const btn = document.createElement('button');
+        btn.className = 'option' + (state.answers[key] === option ? ' selected' : '');
+        btn.type = 'button';
+        btn.textContent = option;
+        btn.onclick = () => {
+          state.answers[key] = option;
+          render();
+          scheduleAutoAdvance();
+        };
+        optionsWrap.appendChild(btn);
+      });
+      div.appendChild(optionsWrap);
+      div.appendChild(navButtons());
+      return div;
+    }
+
+    function renderFacilities() {
+      const options = ['Sound system', 'Stage lighting', 'Centre projection screen', 'Side projection screens', 'Café / refreshments', 'Dressing rooms', 'Parking area'];
+      const div = document.createElement('div');
+      div.innerHTML = `<div class="eyebrow">Classification</div><div class="question">Which facilities were used for this event?</div><p class="sub">Select all that apply, then tap Next.</p>`;
+      const wrap = document.createElement('div');
+      wrap.className = 'multi-options';
+      options.forEach(option => {
+        const btn = document.createElement('button');
+        const selected = state.answers.facilitiesUsed.includes(option);
+        btn.className = 'multi-option' + (selected ? ' selected' : '');
+        btn.type = 'button';
+        btn.textContent = option;
+        btn.onclick = () => {
+          const arr = state.answers.facilitiesUsed;
+          state.answers.facilitiesUsed = arr.includes(option) ? arr.filter(v => v !== option) : [...arr, option];
+          render();
+        };
+        wrap.appendChild(btn);
+      });
+      div.appendChild(wrap);
+      div.appendChild(navButtons());
+      return div;
+    }
+
+    function renderLikert(question, eyebrow) {
+      const key = screens[state.current].id;
+      const div = document.createElement('div');
+      div.innerHTML = `<div class="eyebrow">${eyebrow}</div><div class="question">${question}</div><p class="sub">Choose the option that best matches your experience.</p>`;
+      const wrap = document.createElement('div');
+      wrap.className = 'options';
+      likertOptions.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option' + (state.answers[key] === opt.value ? ' selected' : '');
+        btn.type = 'button';
+        btn.textContent = opt.label;
+        btn.onclick = () => {
+          state.answers[key] = opt.value;
+          render();
+          scheduleAutoAdvance();
+        };
+        wrap.appendChild(btn);
+      });
+      div.appendChild(wrap);
+      div.appendChild(navButtons());
+      return div;
+    }
+
+    function renderCafe() {
+      const div = document.createElement('div');
+      div.innerHTML = `<div class="eyebrow">Experience</div><div class="question">The café and refreshments were a positive addition to the event.</div><p class="sub">Choose <strong>Not used</strong> if the café was not part of the organiser experience.</p>`;
+      const wrap = document.createElement('div');
+      wrap.className = 'options';
+      const cafeOptions = [...likertOptions, { label: 'Not used', value: 3, notUsed: true }];
+      cafeOptions.forEach(opt => {
+        const btn = document.createElement('button');
+        const selected = state.answers.qCafe === opt.value && (!opt.notUsed || state.answers.qCafeNotUsed === true);
+        const normalSelected = !opt.notUsed && state.answers.qCafe === opt.value && state.answers.qCafeNotUsed !== true;
+        btn.className = 'option' + ((selected || normalSelected) ? ' selected' : '');
+        btn.type = 'button';
+        btn.textContent = opt.label;
+        btn.onclick = () => {
+          state.answers.qCafe = opt.value;
+          state.answers.qCafeNotUsed = !!opt.notUsed;
+          render();
+          scheduleAutoAdvance();
+        };
+        wrap.appendChild(btn);
+      });
+      div.appendChild(wrap);
+      div.appendChild(navButtons());
+      return div;
+    }
+
+    function renderNPS() {
+      const div = document.createElement('div');
+      div.innerHTML = `<div class="eyebrow">Recommendation</div><div class="question">How likely are you to recommend this venue to another event organiser?</div><p class="sub">0 means not at all likely. 10 means extremely likely.</p>`;
+      const grid = document.createElement('div');
+      grid.className = 'nps-grid';
+      for (let i = 0; i <= 10; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'nps-option' + (state.answers.recommendation === i ? ' selected' : '');
+        btn.type = 'button';
+        btn.textContent = i;
+        btn.onclick = () => {
+          state.answers.recommendation = i;
+          render();
+          scheduleAutoAdvance();
+        };
+        grid.appendChild(btn);
+      }
+      div.appendChild(grid);
+      const labels = document.createElement('div');
+      labels.className = 'scale-labels';
+      labels.innerHTML = '<span>Not at all likely</span><span>Extremely likely</span>';
+      div.appendChild(labels);
+      div.appendChild(navButtons());
+      return div;
+    }
+
+    function renderComment() {
+      const div = document.createElement('div');
+      div.innerHTML = `<div class="eyebrow">Feedback</div><div class="question">What is one thing we could improve for future events?</div><p class="sub">Optional.</p>`;
+      const textarea = document.createElement('textarea');
+      textarea.placeholder = 'Write your suggestion here…';
+      textarea.value = state.answers.improvement;
+      textarea.oninput = (e) => { state.answers.improvement = e.target.value; };
+      div.appendChild(textarea);
+      div.appendChild(navButtons({ canContinue: true }));
+      return div;
+    }
+
+    function renderContact() {
+      const div = document.createElement('div');
+      div.innerHTML = `<div class="eyebrow">Contact</div><div class="question">Please confirm your details</div><p class="sub">These details would normally be pre-filled from the email link.</p>`;
+
+      const errorBox = document.createElement('div');
+      errorBox.className = 'error-box';
+      errorBox.id = 'contactErrorBox';
+      div.appendChild(errorBox);
+
+      const fieldMeta = [
+        ['Name', 'name', 'Your name'],
+        ['Organisation', 'organisation', 'Organisation or group'],
+        ['Email', 'email', 'name@example.com']
+      ];
+
+      const inputs = {};
+      fieldMeta.forEach(([labelText, key, placeholder]) => {
+        const field = document.createElement('div');
+        field.className = 'field';
+        const label = document.createElement('label');
+        label.textContent = labelText;
+        const input = document.createElement('input');
+        input.placeholder = placeholder;
+        input.value = state.answers[key];
+        const fieldError = document.createElement('div');
+        fieldError.className = 'field-error';
+        input.oninput = (e) => {
+          state.answers[key] = e.target.value;
+          validateContactFields(inputs, false);
+          nextBtn.disabled = !validateContact();
+        };
+        field.appendChild(label);
+        field.appendChild(input);
+        field.appendChild(fieldError);
+        div.appendChild(field);
+        inputs[key] = { input, fieldError, label: labelText };
+      });
+
+      const actionBar = navButtons({ canContinue: validateContact(), primaryText: state.isSubmitting ? 'Submitting…' : 'Submit' });
+      const nextBtn = actionBar.querySelector('.primary');
+      nextBtn.onclick = () => {
+        const ok = validateContactFields(inputs, true);
+        nextBtn.disabled = !validateContact() || state.isSubmitting;
+        if (!ok) return;
+        submitSurvey();
+      };
+      nextBtn.disabled = !validateContact() || state.isSubmitting;
+      div.appendChild(actionBar);
+      return div;
+    }
+
+    function validateContactFields(inputs, showSummary) {
+      let firstInvalid = null;
+      const messages = [];
+
+      Object.values(inputs).forEach(({ input, fieldError }) => {
+        input.classList.remove('invalid');
+        fieldError.textContent = '';
+      });
+
+      if (!state.answers.name.trim()) {
+        markInvalid(inputs.name, 'Please enter your name.');
+        messages.push('Name is required.');
+        firstInvalid = firstInvalid || inputs.name.input;
+      }
+      if (!state.answers.organisation.trim()) {
+        markInvalid(inputs.organisation, 'Please enter your organisation.');
+        messages.push('Organisation is required.');
+        firstInvalid = firstInvalid || inputs.organisation.input;
+      }
+      if (!state.answers.email.trim()) {
+        markInvalid(inputs.email, 'Please enter your email address.');
+        messages.push('Email is required.');
+        firstInvalid = firstInvalid || inputs.email.input;
+      } else if (!validEmail(state.answers.email)) {
+        markInvalid(inputs.email, 'Please enter a valid email address.');
+        messages.push('A valid email address is required.');
+        firstInvalid = firstInvalid || inputs.email.input;
+      }
+
+      const box = document.getElementById('contactErrorBox');
+      if (box) {
+        if (showSummary && messages.length) {
+          box.textContent = messages[0];
+          box.classList.add('show');
+        } else {
+          box.textContent = '';
+          box.classList.remove('show');
+        }
+      }
+
+      if (showSummary && firstInvalid) firstInvalid.focus();
+      return messages.length === 0;
+    }
+
+    function markInvalid(fieldObj, message) {
+      fieldObj.input.classList.add('invalid');
+      fieldObj.fieldError.textContent = message;
+    }
+
+    function calculateResults() {
+      const qValues = [state.answers.qPlanning, state.answers.qTechnical, state.answers.qVenue, state.answers.qCafe, state.answers.qSupport, state.answers.qOverall].map(Number);
+      const average = qValues.reduce((a, b) => a + b, 0) / qValues.length;
+      let veqi = (average / 5) * 100;
+      const rec = state.answers.recommendation;
+      if (rec >= 9) veqi += 3;
+      else if (rec <= 6) veqi -= 5;
+      veqi = Math.max(0, Math.min(100, Math.round(veqi)));
+      let rating = 'Needs improvement';
+      if (veqi >= 90) rating = 'Outstanding';
+      else if (veqi >= 80) rating = 'Very strong';
+      else if (veqi >= 70) rating = 'Good';
+      else if (veqi >= 60) rating = 'Operational issues present';
+      return { average: average.toFixed(1), veqi, rating };
+    }
+
+    function buildPayload(extra) {
+      return {
+        submittedAt: new Date().toISOString(),
+        event: {
+          name: prefill.eventName,
+          date: prefill.eventDate,
+          organiser: prefill.organiser
+        },
+        answers: state.answers,
+        metrics: extra
+      };
+    }
+
+    async function submitSurvey() {
+      if (!validateContact()) {
+        render();
+        return;
+      }
+      state.isSubmitting = true;
+      render();
+      const metrics = calculateResults();
+      const payload = buildPayload(metrics);
+
+      if (!GOOGLE_APPS_SCRIPT_URL) {
+        state.submitStatus = 'demo';
+        state.isSubmitting = false;
+        goNext();
+        return;
+      }
+
+      try {
+        await fetch(GOOGLE_APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        state.submitStatus = 'live';
+      } catch (error) {
+        console.error('Submission failed:', error);
+        state.submitStatus = 'demo';
+      } finally {
+        state.isSubmitting = false;
+        goNext();
+      }
+    }
+
+    function renderThankYou() {
+      const { average, veqi, rating } = calculateResults();
+      const payload = buildPayload({ average, veqi, rating });
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <div class="success">✓</div>
+        <div class="eyebrow">Complete</div>
+        <h1>Thank you for your feedback</h1>
+        <p class="sub">${state.submitStatus === 'live' ? 'Your response was sent to the configured endpoint.' : 'This prototype is still in demo mode. It did not send data anywhere.'}</p>
+        <span class="status-pill ${state.submitStatus === 'live' ? 'status-live' : 'status-demo'}">${state.submitStatus === 'live' ? 'Live save enabled' : 'Demo mode only'}</span>
+        <div class="report">
+          <div class="score-badge">VEQI ${veqi}/100</div>
+          <h3>Prototype summary</h3>
+          <div class="metric"><span>Event</span><strong>${escapeHtml(prefill.eventName)}</strong></div>
+          <div class="metric"><span>Organiser</span><strong>${escapeHtml(state.answers.organisation)}</strong></div>
+          <div class="metric"><span>Average satisfaction</span><strong>${average}/5</strong></div>
+          <div class="metric"><span>Recommendation</span><strong>${state.answers.recommendation}/10</strong></div>
+          <div class="metric"><span>Rating</span><strong>${rating}</strong></div>
+        </div>
+        <p class="tiny">You can still download the captured payload below for testing.</p>
+      `;
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const back = document.createElement('button');
+      back.className = 'secondary';
+      back.type = 'button';
+      back.textContent = 'Back';
+      back.onclick = () => { state.current -= 1; render(); };
+      const download = document.createElement('button');
+      download.className = 'primary';
+      download.type = 'button';
+      download.textContent = 'Download response';
+      download.onclick = () => {
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'event-feedback-response.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
+      actions.appendChild(back);
+      actions.appendChild(download);
+      div.appendChild(actions);
+      const footer = document.createElement('div');
+      footer.className = 'footer-note';
+      footer.textContent = 'Prototype v2: improved validation, smoother navigation, optional Google Apps Script hook.';
+      div.appendChild(footer);
+      return div;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    render();
+  </script>
+</body>
+</html>
