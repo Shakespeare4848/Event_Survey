@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Event Feedback Prototype v2</title>
+  <title>Event Feedback</title>
   <style>
     :root {
       --bg: #f4f6fb;
@@ -110,15 +110,6 @@
       width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center;
       background: #ecfdf3; color: var(--ok); font-size: 34px; font-weight: 800; margin-bottom: 16px;
     }
-    .score-badge {
-      display: inline-block; background: var(--accent-soft); color: var(--accent);
-      font-weight: 800; padding: 8px 12px; border-radius: 999px; margin-bottom: 12px;
-    }
-    .status-pill {
-      display: inline-block; margin-top: 8px; padding: 8px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
-    }
-    .status-demo { background: #eef2ff; color: #3730a3; }
-    .status-live { background: #ecfdf3; color: #067647; }
     @media (max-width: 520px) {
       body { padding: 8px; }
       .card { min-height: 100dvh; border-radius: 0; }
@@ -141,14 +132,14 @@
   </div>
 
   <script>
-  const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbykrbG83ewkn_fnsL5Luj1Fgj_c71FOTyRcO3aP8R8lkF_hS0LXWeaqQwn94FUGF2ib/exec';
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbykrbG83ewkn_fnsL5Luj1Fgj_c71FOTyRcO3aP8R8lkF_hS0LXWeaqQwn94FUGF2ib/exec';
     const AUTO_ADVANCE_DELAY = 180;
 
     const params = new URLSearchParams(window.location.search);
     const prefill = {
-      eventName: params.get('event') || 'Indian Cultural Festival',
-      eventDate: params.get('date') || '12 March 2026',
-      organiser: params.get('organiser') || 'Dublin Indian Association',
+      eventName: params.get('event') || 'Your Event',
+      eventDate: params.get('date') || '',
+      organiser: params.get('organiser') || '',
       eventType: params.get('type') || '',
       email: params.get('email') || '',
       name: params.get('name') || ''
@@ -165,7 +156,6 @@
     const state = {
       current: 0,
       isSubmitting: false,
-      submitStatus: 'demo',
       answers: {
         eventType: prefill.eventType,
         audienceSize: '',
@@ -186,8 +176,8 @@
 
     const screens = [
       { id: 'welcome', render: renderWelcome, valid: () => true },
-      { id: 'eventType', render: () => renderSingleChoice('What type of event was this?', 'Choose the closest fit.', 'eventType', ['Cultural community event', 'Theatre / performance', 'Irish dance competition', 'International / non-Irish dance competition', 'Concert / music event', 'Conference / talk', 'Other'], 'Classification'), valid: () => !!state.answers.eventType },
-      { id: 'audienceSize', render: () => renderSingleChoice('Approximately how many people attended?', 'This helps compare events of different sizes.', 'audienceSize', ['Under 50', '50–100', '100–200', '200–400', '400+'], 'Classification'), valid: () => !!state.answers.audienceSize },
+      { id: 'eventType', render: () => renderSingleChoice('What type of event was this?', 'Choose the closest fit.', 'eventType', ['Cultural community event', 'Theatre / performance', 'Irish dance competition', 'International / non-Irish dance competition', 'Concert / music event', 'Conference / talk', 'Other'], 'Event type'), valid: () => !!state.answers.eventType },
+      { id: 'audienceSize', render: () => renderSingleChoice('Approximately how many people attended?', 'This helps compare events of different sizes.', 'audienceSize', ['Under 50', '50–100', '100–200', '200–400', '400+'], 'Attendance'), valid: () => !!state.answers.audienceSize },
       { id: 'facilitiesUsed', render: renderFacilities, valid: () => state.answers.facilitiesUsed.length > 0 },
       { id: 'qPlanning', render: () => renderLikert('Communication and planning before the event were clear and efficient.', 'Planning'), valid: () => state.answers.qPlanning !== null },
       { id: 'qTechnical', render: () => renderLikert('The sound, lighting and projection facilities met the needs of our event.', 'Experience'), valid: () => state.answers.qTechnical !== null },
@@ -276,7 +266,6 @@
           <div class="event-item"><span>Date</span><strong>${escapeHtml(prefill.eventDate)}</strong></div>
           <div class="event-item"><span>Organiser</span><strong>${escapeHtml(prefill.organiser)}</strong></div>
         </div>
-        <p class="tiny">This version fixes the contact-page issue and auto-advances when an answer is selected.</p>
       `;
       div.appendChild(navButtons({ canContinue: true, showBack: false, primaryText: 'Start' }));
       return div;
@@ -307,7 +296,7 @@
     function renderFacilities() {
       const options = ['Sound system', 'Stage lighting', 'Centre projection screen', 'Side projection screens', 'Café / refreshments', 'Dressing rooms', 'Parking area'];
       const div = document.createElement('div');
-      div.innerHTML = `<div class="eyebrow">Classification</div><div class="question">Which facilities were used for this event?</div><p class="sub">Select all that apply, then tap Next.</p>`;
+      div.innerHTML = `<div class="eyebrow">Facilities</div><div class="question">Which facilities were used for this event?</div><p class="sub">Select all that apply, then tap Next.</p>`;
       const wrap = document.createElement('div');
       wrap.className = 'multi-options';
       options.forEach(option => {
@@ -518,17 +507,17 @@
     function calculateResults() {
       const qValues = [state.answers.qPlanning, state.answers.qTechnical, state.answers.qVenue, state.answers.qCafe, state.answers.qSupport, state.answers.qOverall].map(Number);
       const average = qValues.reduce((a, b) => a + b, 0) / qValues.length;
-      let veqi = (average / 5) * 100;
+      let eventQualityScore = (average / 5) * 100;
       const rec = state.answers.recommendation;
-      if (rec >= 9) veqi += 3;
-      else if (rec <= 6) veqi -= 5;
-      veqi = Math.max(0, Math.min(100, Math.round(veqi)));
+      if (rec >= 9) eventQualityScore += 3;
+      else if (rec <= 6) eventQualityScore -= 5;
+      eventQualityScore = Math.max(0, Math.min(100, Math.round(eventQualityScore)));
       let rating = 'Needs improvement';
-      if (veqi >= 90) rating = 'Outstanding';
-      else if (veqi >= 80) rating = 'Very strong';
-      else if (veqi >= 70) rating = 'Good';
-      else if (veqi >= 60) rating = 'Operational issues present';
-      return { average: average.toFixed(1), veqi, rating };
+      if (eventQualityScore >= 90) rating = 'Outstanding';
+      else if (eventQualityScore >= 80) rating = 'Very strong';
+      else if (eventQualityScore >= 70) rating = 'Good';
+      else if (eventQualityScore >= 60) rating = 'Operational issues present';
+      return { average: average.toFixed(1), eventQualityScore, rating };
     }
 
     function buildPayload(extra) {
@@ -555,7 +544,6 @@
       const payload = buildPayload(metrics);
 
       if (!GOOGLE_APPS_SCRIPT_URL) {
-        state.submitStatus = 'demo';
         state.isSubmitting = false;
         goNext();
         return;
@@ -567,10 +555,8 @@
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
-        state.submitStatus = 'live';
       } catch (error) {
         console.error('Submission failed:', error);
-        state.submitStatus = 'demo';
       } finally {
         state.isSubmitting = false;
         goNext();
@@ -578,55 +564,13 @@
     }
 
     function renderThankYou() {
-      const { average, veqi, rating } = calculateResults();
-      const payload = buildPayload({ average, veqi, rating });
       const div = document.createElement('div');
       div.innerHTML = `
         <div class="success">✓</div>
         <div class="eyebrow">Complete</div>
         <h1>Thank you for your feedback</h1>
-        <p class="sub">${state.submitStatus === 'live' ? 'Your response was sent to the configured endpoint.' : 'This prototype is still in demo mode. It did not send data anywhere.'}</p>
-        <span class="status-pill ${state.submitStatus === 'live' ? 'status-live' : 'status-demo'}">${state.submitStatus === 'live' ? 'Live save enabled' : 'Demo mode only'}</span>
-        <div class="report">
-          <div class="score-badge">VEQI ${veqi}/100</div>
-          <h3>Prototype summary</h3>
-          <div class="metric"><span>Event</span><strong>${escapeHtml(prefill.eventName)}</strong></div>
-          <div class="metric"><span>Organiser</span><strong>${escapeHtml(state.answers.organisation)}</strong></div>
-          <div class="metric"><span>Average satisfaction</span><strong>${average}/5</strong></div>
-          <div class="metric"><span>Recommendation</span><strong>${state.answers.recommendation}/10</strong></div>
-          <div class="metric"><span>Rating</span><strong>${rating}</strong></div>
-        </div>
-        <p class="tiny">You can still download the captured payload below for testing.</p>
+        <p class="sub">Your feedback has been submitted successfully.</p>
       `;
-      const actions = document.createElement('div');
-      actions.className = 'actions';
-      const back = document.createElement('button');
-      back.className = 'secondary';
-      back.type = 'button';
-      back.textContent = 'Back';
-      back.onclick = () => { state.current -= 1; render(); };
-      const download = document.createElement('button');
-      download.className = 'primary';
-      download.type = 'button';
-      download.textContent = 'Download response';
-      download.onclick = () => {
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'event-feedback-response.json';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      };
-      actions.appendChild(back);
-      actions.appendChild(download);
-      div.appendChild(actions);
-      const footer = document.createElement('div');
-      footer.className = 'footer-note';
-      footer.textContent = 'Prototype v2: improved validation, smoother navigation, optional Google Apps Script hook.';
-      div.appendChild(footer);
       return div;
     }
 
